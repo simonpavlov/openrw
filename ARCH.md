@@ -62,14 +62,8 @@ graph TD
 
 ## 2. Engine internals (`rwengine/src/`)
 
-`rwengine` is the heart of the project. Three hubs anchor everything:
-
-- **`engine/GameWorld`** — central hub holding all live objects, the Bullet physics
-  world, the AI graph, audio, and a pointer to the current state. Spawns objects and
-  traffic, steps the simulation.
-- **`engine/GameData`** — owns *loaded asset data*: model definitions, textures,
-  animations, collision, weather, zones, GXT text. Drives the master load sequence.
-- **`engine/GameState`** — the serializable save-game state (time, player info, flags).
+`rwengine` is the heart of the project. Three long-lived **hubs** anchor everything,
+and the subsystems below map one-to-one onto the `rwengine/src/` directories.
 
 ```mermaid
 graph LR
@@ -97,10 +91,27 @@ graph LR
     RENDER --> OBJ
 ```
 
-**`objects/` vs `data/` — the key distinction**
+### 2.1 Core hubs (`engine/`)
 
-- `data/` holds parsed **type / definition** data read from disk (e.g. `ModelData`,
-  `WeaponData`, `ZoneData`, `PedData`). One definition, shared.
+Three objects own the live game:
+
+- **`GameWorld`** — central hub holding all live objects, the Bullet physics world,
+  the AI graph, audio, and a pointer to the current state. Objects are allocated from
+  six per-type `ObjectPool`s (pedestrian, instance, vehicle, pickup, cutscene,
+  projectile). It spawns objects and traffic and steps the simulation each frame.
+- **`GameData`** — owns *loaded asset data*: model definitions, textures, animations,
+  collision, weather, zones, GXT text. `GameData::load()` drives the master load
+  sequence (see § 2.9 and § 5).
+- **`GameState`** — the serializable save-game state (time, player info, mission flags).
+
+Logging and profiling helpers live in `core/` (`Logger`, `Profiler`).
+
+### 2.2 Object model (`objects/` vs `data/`)
+
+The engine keeps **type definitions** and **live instances** strictly apart:
+
+- `data/` holds parsed type/definition data read from disk (`ModelData`, `WeaponData`,
+  `ZoneData`, `PedData`). One definition, shared by many instances.
 - `objects/` holds the **live runtime instances** placed in the world. `GameObject` is
   the base class:
 
@@ -114,10 +125,65 @@ graph TD
     GameObject --> CutsceneObject
 ```
 
-**`script/`** is the SCM bytecode virtual machine that runs the original game's mission
-logic: `ScriptMachine` executes `SCMFile` bytecode; the GTA III opcode implementations
-live in `script/modules/GTA3Module` (with the bulk in `GTA3ModuleImpl.inl`). Opcodes
-call directly into `GameWorld` / `GameState` to spawn objects, set variables, etc.
+An object is created through a `GameWorld` factory into the matching pool and destroyed
+by removal from that pool. A weapon a character carries is an `items/Weapon` instance
+backed by a shared `data/WeaponData`.
+
+### 2.3 Physics & collision (`dynamics/`)
+
+`GameWorld` owns the Bullet stack — collision configuration, dispatcher, `btDbvtBroadphase`,
+sequential-impulse solver, and a `btDiscreteDynamicsWorld` with gravity `(0, 0, −9.81)`.
+It registers an internal tick callback, `PhysicsTickCallback`, which on each fixed Bullet
+substep walks the vehicle, pedestrian, and instance pools calling `tickPhysics()` on every
+object. `dynamics/` holds the per-object glue: `CollisionInstance` builds a Bullet rigid
+body from a COL model and attaches it to a `GameObject`; `HitTest` runs ghost-object
+sphere/box overlap queries (used by melee and AI checks); and `RaycastCallbacks` provides
+the closest-hit ray callback used by the raycast vehicle — the wheels/suspension model
+implemented in `objects/VehicleObject`. Weapon hitscan raycasts (`dynamicsWorld->rayTest`)
+are issued from `GameWorld::doWeaponScan`. Where this step sits in the frame is shown in § 5.
+
+### 2.4 Script VM (`script/`)
+
+`script/` is the SCM bytecode virtual machine that runs the original game's mission logic:
+`ScriptMachine` executes `SCMFile` bytecode, and the GTA III opcode implementations live in
+`script/modules/GTA3Module` (with the bulk in `GTA3ModuleImpl.inl`). Opcodes call directly
+into `GameWorld` / `GameState` to spawn objects, set variables, and advance missions.
+
+### 2.5 AI & character control (`ai/`)
+
+Every `CharacterObject` is driven by a `CharacterController` subclass — `PlayerController`,
+which translates player input, or `DefaultAIController`, which steers autonomous peds.
+`AIGraph` / `AIGraphNode` hold the navigation path graph loaded from the map, and
+`TrafficDirector` uses it to spawn vehicle and pedestrian traffic near the camera.
+
+### 2.6 Rendering (`render/`)
+
+`GameRenderer` orchestrates the frame, drawing through `OpenGLRenderer` (the GL state
+abstraction over `rwcore/gl`). It frustum-culls with `ViewFrustum` / `ViewCamera`, draws
+world objects via `ObjectRenderer`, then runs specialized passes — `WaterRenderer`,
+`MapRenderer` (radar), `TextRenderer`, `DebugDraw`, and `VisualFX`. Shader sources are in
+`GameShaders`.
+
+### 2.7 Audio (`audio/`)
+
+`SoundManager` wraps OpenAL, owning the listener state and a set of `Sound` / `SoundSource`
+voices. Short effects play from a fully-loaded `SoundBuffer`; music and ambient streams use
+`SoundBufferStreamed`, which decodes incrementally. `alCheck` wraps OpenAL error checking.
+
+### 2.8 Animation (`engine/Animator`)
+
+`Animator` plays an animation onto a model's skeleton, mapping each `AnimationBone` to the
+model's `ModelFrame` (its `boneInstances`) and interpolating keyframes each tick. Animations
+are grouped into named clips by `data/AnimGroup` and loaded from IFP archives by
+`loaders/LoaderIFP`.
+
+### 2.9 Asset loading (`loaders/` + `data/`)
+
+`data/` holds the parsed type/definition structs (`ModelData`, `WeaponData`, `ZoneData`,
+`PedData`, `Weather`, …); `loaders/` parses the GTA text/binary formats that fill them —
+`LoaderIDE` (model defs), `LoaderIPL` (placements), `LoaderCOL` (collision), `LoaderIFP`
+(animation), `LoaderGXT` (text), plus `GenericDATLoader` and `WeatherLoader`. `GameData::load()`
+drives the order. For the end-to-end load → place → tick → draw flow, see § 5.
 
 ---
 
