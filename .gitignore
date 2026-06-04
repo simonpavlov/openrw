@@ -1,5 +1,6 @@
 build/
 documentation/
+compile_commands.json
 *.kdev4
 *~
 *swp
