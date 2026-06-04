@@ -2,6 +2,7 @@
 #define RWGAME_RWGAME_HPP
 
 #include "GameBase.hpp"
+#include "GameController.hpp"
 #include "HUDDrawer.hpp"
 #include "RWConfig.hpp"
 #include "RWImGui.hpp"
@@ -46,6 +47,8 @@ private:
     SCMFile script;
 
     StateManager stateManager;
+
+    GameController gameController;
 
     bool inFocus = true;
     ViewCamera currentCam;

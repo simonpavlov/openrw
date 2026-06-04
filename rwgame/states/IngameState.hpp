@@ -36,6 +36,8 @@ class IngameState final : public State {
     glm::vec2 cameradelta_{};
     /// Invert Y axis movement
     bool m_invertedY;
+    /// Gamepad right-stick camera sensitivity
+    float m_lookSensitivity;
     /// Free look in vehicles.
     bool m_vehicleFreeLook = true;
 

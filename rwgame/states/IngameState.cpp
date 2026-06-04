@@ -46,7 +46,8 @@ IngameState::IngameState(RWGame* game, bool newgame, const std::string& save)
     : State(game)
     , save(save)
     , newgame(newgame)
-    , m_invertedY(game->getConfig().invertY()) {
+    , m_invertedY(game->getConfig().invertY())
+    , m_lookSensitivity(game->getConfig().gamepadLookSensitivity()) {
 }
 
 void IngameState::startTest() {
@@ -190,6 +191,20 @@ void IngameState::tick(float dt) {
         auto held = [&](GameInputState::Control c) {
             return inputEnabled && world->state->input[0].pressed(c);
         };
+
+        // Right analog stick drives the camera. The stick reports a position
+        // (not a delta like the mouse), so apply it per-frame as a velocity.
+        if (inputEnabled) {
+            glm::vec2 stickLook(world->state->input[0].rightStickX,
+                                world->state->input[0].rightStickY);
+            if (glm::length2(stickLook) > 0.0001f) {
+                if (m_invertedY) {
+                    stickLook.y = -stickLook.y;
+                }
+                cameradelta_ -= stickLook * m_lookSensitivity * dt;
+                autolookTimer = kAutoLookTime;
+            }
+        }
 
         auto target = world->pedestrianPool.find(world->state->cameraTarget);
 

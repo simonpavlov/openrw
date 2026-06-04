@@ -58,6 +58,14 @@ struct GameInputState {
      */
     float levels[_MaxControls] = {};
 
+    /**
+     * Secondary analog "look" axis (gamepad right stick), each in [-1, 1].
+     * Device-agnostic: 0 when no analog look device is active. Consumed
+     * per-frame (it is a position, not a delta) by IngameState.
+     */
+    float rightStickX = 0.f;
+    float rightStickY = 0.f;
+
     float operator[](Control c) const {
         return levels[c];
     }

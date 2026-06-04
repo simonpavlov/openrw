@@ -24,6 +24,8 @@ add_library(librwgame STATIC
     MenuSystem.cpp
     GameInput.hpp
     GameInput.cpp
+    GameController.hpp
+    GameController.cpp
 
     game.hpp
     WindowIcon.hpp

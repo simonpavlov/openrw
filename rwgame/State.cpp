@@ -2,6 +2,8 @@
 
 #include "RWGame.hpp"
 
+#include <SDL_gamecontroller.h>
+
 #include <glm/gtc/quaternion.hpp>
 
 // This serves as the "initial" camera position.
@@ -52,6 +54,23 @@ void State::handleEvent(const SDL_Event& e) {
                     m->activate();
                     break;
             }
+            break;
+
+        case SDL_CONTROLLERBUTTONDOWN:
+            switch (e.cbutton.button) {
+                case SDL_CONTROLLER_BUTTON_DPAD_UP:
+                    m->move(-1);
+                    break;
+
+                case SDL_CONTROLLER_BUTTON_DPAD_DOWN:
+                    m->move(1);
+                    break;
+
+                case SDL_CONTROLLER_BUTTON_A:
+                    m->activate();
+                    break;
+            }
+            break;
     }
 }
 

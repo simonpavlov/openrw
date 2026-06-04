@@ -9,6 +9,9 @@ RWARG_OPT(  std::string,    configPath,                                         
 RWARG(      bool,           noconfig,                                                       CONFIG,     "noconfig",     nullptr,    "Don't load configuration file")
 
 RWCONFIGARG(bool,           invertY,        false,                  "input.invert_y",       INPUT,      "invert_y",     nullptr,    "Invert the y-axis of the mouse")
+RWCONFIGARG(bool,           gamepadEnable,  true,                   "input.gamepad_enable", INPUT,      "gamepad_enable", nullptr,  "Enable gamepad/controller input")
+RWCONFIGARG(float,          gamepadDeadzone, 0.2f,                  "input.gamepad_deadzone", INPUT,    "gamepad_deadzone", "FACTOR", "Gamepad analog stick dead-zone [0..1]")
+RWCONFIGARG(float,          gamepadLookSensitivity, 2.5f,           "input.gamepad_look_sensitivity", INPUT, "gamepad_look_sensitivity", "FACTOR", "Gamepad right-stick camera sensitivity [scale factor]")
 
 RWCONFIGARG(int,            width,          800,                    "window.width",         WINDOW,     "width,w",      "WIDTH",    "Game resolution width in pixels")
 RWCONFIGARG(int,            height,         600,                    "window.height",        WINDOW,     "height,h",     "HEIGHT",   "Game resolution height in pixels")

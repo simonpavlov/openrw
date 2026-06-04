@@ -421,6 +421,11 @@ int RWGame::run() {
 
     // Loop until we run out of states.
     bool running = true;
+
+    if (getConfig().gamepadEnable()) {
+        gameController.openFirstAvailable();
+    }
+
     while (stateManager.currentState() && running) {
         RW_PROFILE_FRAME_BOUNDARY();
         RW_PROFILE_SCOPE("Main Loop");
@@ -514,9 +519,36 @@ bool RWGame::updateInput() {
                 event.motion.xrel *= MOUSE_SENSITIVITY_SCALE;
                 event.motion.yrel *= MOUSE_SENSITIVITY_SCALE;
                 break;
+
+            case SDL_CONTROLLERDEVICEADDED:
+                if (getConfig().gamepadEnable()) {
+                    gameController.onDeviceAdded(event.cdevice.which);
+                }
+                break;
+
+            case SDL_CONTROLLERDEVICEREMOVED:
+                if (gameController.onDeviceRemoved(event.cdevice.which)) {
+                    // Drop any held inputs so nothing stays stuck on unplug.
+                    getState()->input[0] = GameInputState{};
+                }
+                break;
         }
 
-        GameInput::updateGameInputState(&getState()->input[0], event);
+        const bool isControllerEvent =
+            event.type == SDL_CONTROLLERBUTTONDOWN ||
+            event.type == SDL_CONTROLLERBUTTONUP ||
+            event.type == SDL_CONTROLLERAXISMOTION;
+        if (!isControllerEvent) {
+            GameInput::updateGameInputState(&getState()->input[0], event);
+        } else {
+            const SDL_JoystickID which =
+                (event.type == SDL_CONTROLLERAXISMOTION) ? event.caxis.which
+                                                         : event.cbutton.which;
+            if (gameController.isActive(which)) {
+                GameInput::updateGameInputState(&getState()->input[0], event,
+                                                getConfig().gamepadDeadzone());
+            }
+        }
 
         if (stateManager.currentState()) {
             RW_PROFILE_SCOPE("State");
